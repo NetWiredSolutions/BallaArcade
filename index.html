@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mini CoD FPS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      background: #000;
+      font-family: Arial, sans-serif;
+      color: white;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 10;
+      cursor: pointer;
+    }
+
+    #overlay h1 {
+      margin-bottom: 0.5rem;
+    }
+
+    #overlay p {
+      margin: 0.1rem 0;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+
+    #hud {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 5;
+      font-size: 14px;
+      text-shadow: 0 0 4px black;
+    }
+
+    /* Crosshair */
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      margin-left: -10px;
+      margin-top: -10px;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    #crosshair::before,
+    #crosshair::after {
+      content: '';
+      position: absolute;
+      background: white;
+    }
+
+    #crosshair::before {
+      left: 9px;
+      top: 0;
+      width: 2px;
+      height: 20px;
+    }
+
+    #crosshair::after {
+      top: 9px;
+      left: 0;
+      width: 20px;
+      height: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <h1>Mini CoD FPS</h1>
+    <p>Click to play</p>
+    <p>WASD: Move &nbsp; | &nbsp; Mouse: Look &nbsp; | &nbsp; Click: Shoot</p>
+  </div>
+
+  <div id="hud">
+    <div>Health: <span id="health">100</span></div>
+    <div>Kills: <span id="kills">0</span></div>
+  </div>
+
+  <div id="crosshair"></div>
+
+  <!-- Three.js will render into the body via JS -->
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

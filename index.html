@@ -1,118 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sutekkā Town | Anime Stickers</title>
+  <meta charset="UTF-8" />
+  <title>Mini CoD FPS (Single Player)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      background: #000;
+      font-family: Arial, sans-serif;
+      color: white;
+    }
 
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: #0b0b0b;
-            font-family: Arial, Helvetica, sans-serif;
-            color: white;
-            overflow-x: hidden;
-        }
+    button {
+      font-family: inherit;
+    }
 
-        header {
-            width: 100%;
-            padding: 20px;
-            box-sizing: border-box;
-            font-size: 28px;
-            font-weight: bold;
-            letter-spacing: 3px;
-            text-align: center;
-            background: rgba(0,0,0,0.4);
-            backdrop-filter: blur(6px);
-            border-bottom: 1px solid #222;
-        }
+    /* Main menu overlay */
+    #menuOverlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      background: radial-gradient(circle at top, #333 0%, #000 60%);
+      z-index: 20;
+    }
 
-        .hero {
-            width: 100%;
-            height: 90vh;
-            background: linear-gradient(to bottom, #111, #000);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-        }
+    #menuOverlay h1 {
+      margin-bottom: 0.25rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
 
-        .hero h1 {
-            font-size: 60px;
-            text-align: center;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 6px;
-            text-shadow: 0px 0px 15px #ff0055;
-            animation: glow 2s infinite;
-        }
+    #menuOverlay p {
+      margin: 0.1rem 0;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
 
-        @keyframes glow {
-            0% { text-shadow: 0 0 10px #ff0055; }
-            50% { text-shadow: 0 0 25px #ff2a7f; }
-            100% { text-shadow: 0 0 10px #ff0055; }
-        }
+    #playButton {
+      margin-top: 1rem;
+      padding: 0.6rem 1.5rem;
+      border: none;
+      border-radius: 4px;
+      background: #2ecc71;
+      color: #000;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+    }
 
-        .floating-stickers img {
-            width: 120px;
-            position: absolute;
-            opacity: 0.8;
-            animation: float 6s infinite ease-in-out;
-        }
+    #playButton:hover {
+      filter: brightness(1.1);
+    }
 
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-25px); }
-            100% { transform: translateY(0px); }
-        }
+    /* Pause overlay */
+    #pauseOverlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 15;
+      cursor: pointer;
+    }
 
-        .section {
-            padding: 50px 20px;
-            text-align: center;
-            font-size: 20px;
-        }
+    #hud {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 5;
+      font-size: 14px;
+      text-shadow: 0 0 4px black;
+    }
 
-        .button {
-            padding: 12px 25px;
-            background: #ff0055;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-size: 20px;
-            transition: 0.3s;
-        }
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      margin-left: -10px;
+      margin-top: -10px;
+      pointer-events: none;
+      z-index: 4;
+    }
 
-        .button:hover {
-            background: #ff3380;
-            transform: scale(1.05);
-        }
-    </style>
+    #crosshair::before,
+    #crosshair::after {
+      content: '';
+      position: absolute;
+      background: white;
+    }
+
+    #crosshair::before {
+      left: 9px;
+      top: 0;
+      width: 2px;
+      height: 20px;
+    }
+
+    #crosshair::after {
+      top: 9px;
+      left: 0;
+      width: 20px;
+      height: 2px;
+    }
+
+    #hitmarker {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 40px;
+      height: 40px;
+      margin-left: -20px;
+      margin-top: -20px;
+      pointer-events: none;
+      z-index: 6;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    #hitmarker.active {
+      opacity: 1;
+    }
+
+    #killfeed {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 5;
+      font-size: 12px;
+      text-align: right;
+      max-width: 200px;
+      text-shadow: 0 0 4px black;
+    }
+
+    #reloadHint {
+      position: fixed;
+      bottom: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 6;
+      display: none;
+    }
+  </style>
 </head>
 
 <body>
 
-<header>Sutekkā Town</header>
+  <!-- MAIN MENU -->
+  <div id="menuOverlay">
+    <h1>Mini CoD FPS</h1>
+    <p>Single-player browser shooter</p>
+    <button id="playButton">Play</button>
+  </div>
 
-<section class="hero">
+  <!-- PAUSE OVERLAY -->
+  <div id="pauseOverlay">
+    <h2>Paused</h2>
+    <p>Click to resume</p>
+  </div>
 
-    <h1>Anime Sticker Shop</h1>
+  <!-- HUD -->
+  <div id="hud">
+    <div>Health: <span id="health">100</span></div>
+    <div>Ammo: <span id="ammo">30</span>/<span id="reserveAmmo">120</span></div>
+    <div>Kills: <span id="kills">0</span></div>
+  </div>
 
-    <!-- Floating sticker elements (replace with your images later) -->
-    <div class="floating-stickers">
-        <img src="https://i.imgur.com/0Zz6VxV.png" style="top:20%; left:10%; animation-delay: 0s;">
-        <img src="https://i.imgur.com/0Zz6VxV.png" style="top:60%; left:70%; animation-delay: 1s;">
-        <img src="https://i.imgur.com/0Zz6VxV.png" style="top:40%; left:50%; animation-delay: 2s;">
-    </div>
+  <div id="reloadHint">Reloading...</div>
 
-</section>
+  <div id="crosshair"></div>
+  <div id="hitmarker"></div>
+  <div id="killfeed"></div>
 
-<section class="section">
-    Welcome to Sutekkā Town — your home for premium anime-inspired stickers with glowing, badass aesthetics.
-    <br><br>
-    <a class="button" href="#">View Collection</a>
-</section>
+  <!-- LOAD THREE.JS + POINTERLOCK (no import issues) -->
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+
+  <!-- YOUR GAME -->
+  <script src="./main.js"></script>
 
 </body>
 </html>

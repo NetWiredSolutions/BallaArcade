@@ -1,11 +1,8 @@
-import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
-import { PointerLockControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/PointerLockControls.js';
+// Uses global THREE and THREE.PointerLockControls from script tags in index.html
 
-// Three.js core
 let camera, scene, renderer;
 let controls;
 
-// Movement flags
 let moveForward = false;
 let moveBackward = false;
 let moveLeft = false;
@@ -13,32 +10,26 @@ let moveRight = false;
 let isSprinting = false;
 let canJump = false;
 
-// Physics
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 let prevTime = performance.now();
 
-// World objects
-const objects = [];      // collidable static geometry
-const enemies = [];      // enemy meshes
+const objects = [];
+const enemies = [];
 
-// Player stats
 let health = 100;
 let kills = 0;
 
-// Health regen
 let lastDamageTime = 0;
-const REGEN_DELAY = 3;   // seconds before regen starts
-const REGEN_RATE = 15;   // health per second
+const REGEN_DELAY = 3;
+const REGEN_RATE = 15;
 
-// Weapon / ammo
 const MAG_SIZE = 30;
 let ammoInMag = MAG_SIZE;
 let reserveAmmo = 120;
 let isReloading = false;
-const RELOAD_TIME = 1.5; // seconds
+const RELOAD_TIME = 1.5;
 
-// DOM elements
 const menuOverlay = document.getElementById('menuOverlay');
 const playButton = document.getElementById('playButton');
 const pauseOverlay = document.getElementById('pauseOverlay');
@@ -51,29 +42,22 @@ const reloadHintEl = document.getElementById('reloadHint');
 const hitmarkerEl = document.getElementById('hitmarker');
 const killfeedEl = document.getElementById('killfeed');
 
-// Game state
 let gameStarted = false;
-
-// For gun model
 let gunGroup;
 
-// Init and start render loop
 init();
 animate();
 
 function init() {
-  // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
   document.body.appendChild(renderer.domElement);
 
-  // Scene
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x050505);
   scene.fog = new THREE.Fog(0x050505, 10, 250);
 
-  // Camera
   camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
@@ -81,7 +65,6 @@ function init() {
     1000
   );
 
-  // Lighting
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x222222, 0.6);
   hemiLight.position.set(0, 200, 0);
   scene.add(hemiLight);
@@ -90,12 +73,10 @@ function init() {
   dirLight.position.set(30, 50, -30);
   scene.add(dirLight);
 
-  // Pointer lock controls
-  controls = new PointerLockControls(camera, document.body);
+  controls = new THREE.PointerLockControls(camera, document.body);
   controls.getObject().position.set(0, 5, 0);
   scene.add(controls.getObject());
 
-  // Click Play to start
   playButton.addEventListener('click', () => {
     startGame();
   });
@@ -110,7 +91,6 @@ function init() {
     }
   });
 
-  // Floor
   const floorGeo = new THREE.PlaneGeometry(400, 400);
   const floorMat = new THREE.MeshPhongMaterial({ color: 0x202020, depthWrite: true });
   const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -118,16 +98,10 @@ function init() {
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // Map / buildings / cover
   createMap();
-
-  // Enemies
   spawnEnemies(18);
-
-  // Weapon model
   createGunModel();
 
-  // Input events
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('keyup', onKeyUp);
 
@@ -136,7 +110,6 @@ function init() {
     if (controls.isLocked && e.button === 0) {
       handleShoot();
     } else if (gameStarted && !controls.isLocked) {
-      // Resume on click if paused
       controls.lock();
     }
   });
@@ -149,7 +122,6 @@ function init() {
 
   window.addEventListener('resize', onWindowResize);
 
-  // Update HUD initial values
   updateHUD();
 }
 
@@ -164,7 +136,6 @@ function createMap() {
   const buildingMat = new THREE.MeshPhongMaterial({ color: 0x262626 });
   const crateMat = new THREE.MeshPhongMaterial({ color: 0x353535 });
 
-  // Perimeter walls
   const wallGeoLong = new THREE.BoxGeometry(400, 12, 2);
   const wallGeoShort = new THREE.BoxGeometry(2, 12, 400);
 
@@ -188,7 +159,6 @@ function createMap() {
   scene.add(wall4);
   objects.push(wall4);
 
-  // Simple "city blocks" buildings
   const buildingGeo = new THREE.BoxGeometry(25, 25, 25);
   const buildingPositions = [
     [-100, 12.5, -100],
@@ -206,7 +176,6 @@ function createMap() {
     objects.push(b);
   }
 
-  // Crates / cover scattered around
   const crateGeo = new THREE.BoxGeometry(5, 5, 5);
   for (let i = 0; i < 40; i++) {
     const crate = new THREE.Mesh(crateGeo, crateMat);
@@ -240,7 +209,6 @@ function spawnEnemies(count) {
 }
 
 function createGunModel() {
-  // Very simple gun model attached to camera
   gunGroup = new THREE.Group();
 
   const gunBodyGeo = new THREE.BoxGeometry(1.2, 0.6, 2.8);
@@ -261,7 +229,6 @@ function createGunModel() {
   camera.add(gunGroup);
 }
 
-// Input handling
 function onKeyDown(event) {
   switch (event.code) {
     case 'ArrowUp':
@@ -319,12 +286,10 @@ function onKeyUp(event) {
   }
 }
 
-// Shooting / reloading
 function handleShoot() {
   if (!gameStarted || isReloading) return;
 
   if (ammoInMag <= 0) {
-    // Show reload hint when mag is empty
     showReloadHint('Out of ammo – press R to reload');
     return;
   }
@@ -332,18 +297,16 @@ function handleShoot() {
   ammoInMag--;
   updateHUD();
 
-  // Raycast for hit detection
   const raycaster = new THREE.Raycaster();
   const dir = new THREE.Vector3();
   camera.getWorldDirection(dir);
-  raycaster.set(camera.position, dir);
+  raycaster.set(camera.position.clone(), dir);
 
   const intersects = raycaster.intersectObjects(enemies, false);
 
   if (intersects.length > 0) {
     const hit = intersects[0].object;
 
-    // Damage
     const damage = 50;
     hit.userData.health -= damage;
     hit.userData.lastHitTime = performance.now() / 1000;
@@ -355,7 +318,6 @@ function handleShoot() {
     }
   }
 
-  // Simple gun "kick"
   if (gunGroup) {
     gunGroup.position.z = -0.9;
     setTimeout(() => {
@@ -388,7 +350,6 @@ function tryReload() {
   }, RELOAD_TIME * 1000);
 }
 
-// Hitmarker
 function showHitmarker() {
   hitmarkerEl.classList.add('active');
   setTimeout(() => {
@@ -396,7 +357,6 @@ function showHitmarker() {
   }, 100);
 }
 
-// Killfeed
 function addKill(enemy) {
   scene.remove(enemy);
   const idx = enemies.indexOf(enemy);
@@ -409,13 +369,11 @@ function addKill(enemy) {
   line.textContent = `You eliminated enemy`;
   killfeedEl.prepend(line);
 
-  // Limit killfeed lines
   while (killfeedEl.children.length > 5) {
     killfeedEl.removeChild(killfeedEl.lastChild);
   }
 }
 
-// Reload hint
 function showReloadHint(msg) {
   reloadHintEl.textContent = msg;
   reloadHintEl.style.display = 'block';
@@ -426,14 +384,12 @@ function showReloadHint(msg) {
   }, 1200);
 }
 
-// HUD updates
 function updateHUD() {
   healthEl.textContent = Math.floor(health).toString();
   ammoEl.textContent = ammoInMag.toString();
   reserveAmmoEl.textContent = reserveAmmo.toString();
 }
 
-// Enemy AI
 function enemyAI(delta) {
   const playerPos = controls.getObject().position;
 
@@ -441,18 +397,15 @@ function enemyAI(delta) {
     const dir = new THREE.Vector3().subVectors(playerPos, enemy.position);
     const distance = dir.length();
 
-    // Simple chase if within range
     if (distance > 6 && distance < 90) {
       dir.normalize();
       const speed = 8;
       enemy.position.addScaledVector(dir, speed * delta);
     } else if (distance >= 90) {
-      // Wander a bit if far
       enemy.position.x += (Math.random() - 0.5) * 2 * delta * 15;
       enemy.position.z += (Math.random() - 0.5) * 2 * delta * 15;
     }
 
-    // Damage player if very close
     if (distance <= 4) {
       const damagePerSecond = 12;
       health -= damagePerSecond * delta;
@@ -464,7 +417,6 @@ function enemyAI(delta) {
   });
 }
 
-// Player death
 function handleDeath() {
   health = 0;
   updateHUD();
@@ -478,7 +430,6 @@ function handleDeath() {
   `;
 }
 
-// Health regen over time
 function regenHealth(delta) {
   const now = performance.now() / 1000;
   if (now - lastDamageTime > REGEN_DELAY && health > 0 && health < 100) {
@@ -488,14 +439,12 @@ function regenHealth(delta) {
   }
 }
 
-// Resize
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Main loop
 function animate() {
   requestAnimationFrame(animate);
 
@@ -503,10 +452,9 @@ function animate() {
   const delta = (time - prevTime) / 1000;
 
   if (gameStarted && controls.isLocked === true) {
-    // Movement physics
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
-    velocity.y -= 9.8 * 5.0 * delta; // gravity
+    velocity.y -= 9.8 * 5.0 * delta;
 
     direction.z = Number(moveForward) - Number(moveBackward);
     direction.x = Number(moveRight) - Number(moveLeft);
@@ -526,14 +474,12 @@ function animate() {
     controlObject.position.z += velocity.z * delta;
     controlObject.position.y += velocity.y * delta;
 
-    // Floor collision
     if (controlObject.position.y < 2) {
       velocity.y = 0;
       controlObject.position.y = 2;
       canJump = true;
     }
 
-    // Basic collisions with world
     const playerBox = new THREE.Box3().setFromCenterAndSize(
       controlObject.position,
       new THREE.Vector3(2, 6, 2)
@@ -548,7 +494,6 @@ function animate() {
       }
     }
 
-    // AI and regen
     enemyAI(delta);
     regenHealth(delta);
   }

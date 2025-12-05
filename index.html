@@ -1,251 +1,147 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Mini CoD FPS (Single Player)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      height: 100%;
-      background: #000;
-      font-family: Arial, sans-serif;
-      color: white;
+// Uses global THREE and THREE.PointerLockControls from script tags in index.html
+
+let camera, scene, renderer;
+let controls;
+
+let moveForward = false;
+let moveBackward = false;
+let moveLeft = false;
+let moveRight = false;
+let isSprinting = false;
+let canJump = false;
+
+let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+let prevTime = performance.now();
+
+const objects = [];
+const enemies = [];
+
+let health = 100;
+let kills = 0;
+
+let lastDamageTime = 0;
+const REGEN_DELAY = 3;
+const REGEN_RATE = 15;
+
+const MAG_SIZE = 30;
+let ammoInMag = MAG_SIZE;
+let reserveAmmo = 120;
+let isReloading = false;
+const RELOAD_TIME = 1.5;
+
+const menuOverlay = document.getElementById('menuOverlay');
+const playButton = document.getElementById('playButton');
+const pauseOverlay = document.getElementById('pauseOverlay');
+
+const healthEl = document.getElementById('health');
+const ammoEl = document.getElementById('ammo');
+const reserveAmmoEl = document.getElementById('reserveAmmo');
+const killsEl = document.getElementById('kills');
+const reloadHintEl = document.getElementById('reloadHint');
+const hitmarkerEl = document.getElementById('hitmarker');
+const killfeedEl = document.getElementById('killfeed');
+
+let gameStarted = false;
+let gunGroup;
+
+init();
+animate();
+
+function init() {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  document.body.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x050505);
+  scene.fog = new THREE.Fog(0x050505, 10, 250);
+
+  camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x222222, 0.6);
+  hemiLight.position.set(0, 200, 0);
+  scene.add(hemiLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+  dirLight.position.set(30, 50, -30);
+  scene.add(dirLight);
+
+  controls = new THREE.PointerLockControls(camera, document.body);
+  controls.getObject().position.set(0, 5, 0);
+  scene.add(controls.getObject());
+
+  playButton.addEventListener('click', () => {
+    startGame();
+  });
+
+  controls.addEventListener('lock', () => {
+    pauseOverlay.style.display = 'none';
+  });
+
+  controls.addEventListener('unlock', () => {
+    if (gameStarted) {
+      pauseOverlay.style.display = 'flex';
     }
+  });
 
-    button {
-      font-family: inherit;
+  const floorGeo = new THREE.PlaneGeometry(400, 400);
+  const floorMat = new THREE.MeshPhongMaterial({ color: 0x202020, depthWrite: true });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  createMap();
+  spawnEnemies(18);
+  createGunModel();
+
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+
+  document.addEventListener('mousedown', (e) => {
+    if (!gameStarted) return;
+    if (controls.isLocked && e.button === 0) {
+      handleShoot();
+    } else if (gameStarted && !controls.isLocked) {
+      controls.lock();
     }
+  });
 
-    /* Main menu overlay */
-    #menuOverlay {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      background: radial-gradient(circle at top, #333 0%, #000 60%);
-      z-index: 20;
+  pauseOverlay.addEventListener('click', () => {
+    if (!controls.isLocked && gameStarted) {
+      controls.lock();
     }
+  });
 
-    #menuOverlay h1 {
-      margin-bottom: 0.25rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
+  window.addEventListener('resize', onWindowResize);
 
-    #menuOverlay p {
-      margin: 0.1rem 0;
-      font-size: 0.9rem;
-      opacity: 0.8;
-    }
+  updateHUD();
+}
 
-    #playButton {
-      margin-top: 1rem;
-      padding: 0.6rem 1.5rem;
-      border: none;
-      border-radius: 4px;
-      background: #2ecc71;
-      color: #000;
-      font-weight: bold;
-      font-size: 1rem;
-      cursor: pointer;
-    }
+function startGame() {
+  menuOverlay.style.display = 'none';
+  gameStarted = true;
+  controls.lock();
+}
 
-    #playButton:hover {
-      filter: brightness(1.1);
-    }
+function createMap() {
+  const wallMat = new THREE.MeshPhongMaterial({ color: 0x404040 });
+  const buildingMat = new THREE.MeshPhongMaterial({ color: 0x262626 });
+  const crateMat = new THREE.MeshPhongMaterial({ color: 0x353535 });
 
-    /* Pause / click to resume overlay */
-    #pauseOverlay {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      background: rgba(0, 0, 0, 0.75);
-      z-index: 15;
-      cursor: pointer;
-    }
+  const wallGeoLong = new THREE.BoxGeometry(400, 12, 2);
+  const wallGeoShort = new THREE.BoxGeometry(2, 12, 400);
 
-    #pauseOverlay h2 {
-      margin-bottom: 0.4rem;
-    }
+  const wall1 = new THREE.Mesh(wallGeoLong, wallMat);
+  wall1.position.set(0, 6, -200);
+  scene.add(wall1);
+  objects.push(wall1);
 
-    #pauseOverlay p {
-      margin: 0.15rem 0;
-      font-size: 0.9rem;
-      opacity: 0.8;
-    }
-
-    /* HUD */
-    #hud {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 5;
-      font-size: 14px;
-      text-shadow: 0 0 4px black;
-    }
-
-    #hud div {
-      margin-bottom: 2px;
-    }
-
-    #reloadHint {
-      position: fixed;
-      bottom: 50px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 14px;
-      text-shadow: 0 0 4px black;
-      display: none;
-      z-index: 6;
-    }
-
-    /* Crosshair */
-    #crosshair {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      width: 20px;
-      height: 20px;
-      margin-left: -10px;
-      margin-top: -10px;
-      pointer-events: none;
-      z-index: 4;
-    }
-
-    #crosshair::before,
-    #crosshair::after {
-      content: '';
-      position: absolute;
-      background: white;
-    }
-
-    #crosshair::before {
-      left: 9px;
-      top: 0;
-      width: 2px;
-      height: 20px;
-    }
-
-    #crosshair::after {
-      top: 9px;
-      left: 0;
-      width: 20px;
-      height: 2px;
-    }
-
-    /* Hitmarker */
-    #hitmarker {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      width: 40px;
-      height: 40px;
-      margin-left: -20px;
-      margin-top: -20px;
-      pointer-events: none;
-      z-index: 6;
-      opacity: 0;
-      transition: opacity 0.1s;
-    }
-
-    #hitmarker::before,
-    #hitmarker::after {
-      content: '';
-      position: absolute;
-      background: #ff3b3b;
-    }
-
-    #hitmarker::before {
-      left: 19px;
-      top: 5px;
-      width: 2px;
-      height: 30px;
-    }
-
-    #hitmarker::after {
-      left: 5px;
-      top: 19px;
-      width: 30px;
-      height: 2px;
-    }
-
-    #hitmarker.active {
-      opacity: 1;
-    }
-
-    /* Killfeed (top-right) */
-    #killfeed {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 5;
-      font-size: 12px;
-      text-align: right;
-      max-width: 200px;
-      text-shadow: 0 0 4px black;
-    }
-
-    #killfeed div {
-      margin-bottom: 2px;
-      opacity: 0.9;
-    }
-
-    /* Bottom-left info */
-    #helpText {
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      z-index: 5;
-      font-size: 11px;
-      text-shadow: 0 0 4px black;
-      opacity: 0.8;
-    }
-  </style>
-</head>
-<body>
-  <!-- Main menu -->
-  <div id="menuOverlay">
-    <h1>Mini CoD FPS</h1>
-    <p>Single-player browser shooter prototype</p>
-    <p>WASD: Move &nbsp; | &nbsp; Mouse: Look &nbsp; | &nbsp; Click: Shoot</p>
-    <p>Shift: Sprint &nbsp; | &nbsp; Space: Jump &nbsp; | &nbsp; R: Reload</p>
-    <button id="playButton">Play</button>
-  </div>
-
-  <!-- Pause / resume overlay -->
-  <div id="pauseOverlay">
-    <h2>Paused</h2>
-    <p>Click to resume</p>
-    <p>Press ESC to unlock mouse</p>
-  </div>
-
-  <!-- HUD -->
-  <div id="hud">
-    <div>Health: <span id="health">100</span></div>
-    <div>Ammo: <span id="ammo">30</span>/<span id="reserveAmmo">120</span></div>
-    <div>Kills: <span id="kills">0</span></div>
-  </div>
-
-  <div id="reloadHint">Reloading...</div>
-
-  <div id="crosshair"></div>
-  <div id="hitmarker"></div>
-
-  <div id="killfeed"></div>
-
-  <div id="helpText">
-    ESC: Unlock mouse / pause
-  </div>
-
-  <!-- Three.js code -->
-  <script type="module" src="./main.js"></script>
-</body>
-</html>
+  const wall2 = wall
